@@ -2,7 +2,7 @@
 
 首先，我们先来回顾一下执行上下文的生命周期
 
-![1594045172718](C:\Users\NieLei\Desktop\js2\1594045172718.png)
+![1594045172718](./1594045172718.png)
 
 首先，我们需要得出一个非常重要的，并且一定要牢记于心的结论，**this的指向，是在函数被调用的时候确定的。**也就是执行上下文被创建时确定的。
 
@@ -261,5 +261,259 @@ bar();
     add(10, 20);
 ```
 
+## 事件循环
+
+我们知道JavaScript的一大特点就是单线程，而这个线程中拥有唯一的一个事件循环。
+
+JavaScript代码的执行过程中，除了依靠函数调用栈来搞定函数的执行顺序外，还依靠任务队列(task queue)来搞定另外一些代码的执行。
+
+![1594129994511](./1594129994511.png)
+
+- 一个线程中，事件循环是唯一的，但是任务队列可以拥有多个。
+- 任务队列又分为macro-task（宏任务）与micro-task（微任务），在最新标准中，它们被分别称为task与jobs。
+- macro-task大概包括：script(整体代码), setTimeout, setInterval, setImmediate
+- micro-task大概包括: process.nextTick, Promise
+- setTimeout/Promise等我们称之为任务源。而进入任务队列的是他们指定的具体执行任务。
+
+```javascript
+// setTimeout中的回调函数才是进入任务队列的任务
+setTimeout(function() {
+    console.log('xxxx');
+})
+// setTimeout作为一个任务分发器，这个函数会立即执行，而它所要分发的任务，也就是它的第一个参数，才是延迟执行
+
+```
+
+- 来自不同任务源的任务会进入到不同的任务队列。其中setTimeout与setInterval是同源的。
+- 事件循环的顺序，决定了JavaScript代码的执行顺序。它从script(整体代码)开始第一次循环。之后全局上下文进入函数调用栈。直到调用栈清空(只剩全局)，然后执行所有的micro-task。当所有可执行的micro-task执行完毕之后。循环再次从macro-task开始，找到其中一个任务队列执行完毕，然后再执行所有的micro-task，这样一直循环下去。
+- 其中每一个任务的执行，无论是macro-task还是micro-task，都是借助函数调用栈来完成。
+
+```javascript
+setTimeout(function() {
+    console.log('timeout1');
+})
+
+new Promise(function(resolve) {
+    console.log('promise1');
+    for(var i = 0; i < 1000; i++) {
+        i == 99 && resolve();
+    }
+    console.log('promise2');
+}).then(function() {
+    console.log('then1');
+})
+
+console.log('global1');
+```
+
+首先，事件循环从宏任务队列开始，这个时候，宏任务队列中，只有一个script(整体代码)任务。每一个任务的执行顺序，都依靠函数调用栈来搞定，而当遇到任务源时，则会先分发任务到对应的队列中去，所以，上面例子的第一步执行如下图所示
+
+![1594130776660](./1594130776660.png)
+
+第二步：script任务执行时首先遇到了setTimeout，setTimeout为一个宏任务源，那么他的作用就是将任务分发到它对应的队列中。
+
+![1594131056186](./1594131056186.png)
+
+第三步：script执行时遇到Promise实例。Promise构造函数中的第一个参数，是在new的时候执行，因此不会进入任何其他的队列，而是直接在当前任务直接执行了，而后续的.then则会被分发到micro-task的Promise队列中去。
+
+因此，构造函数执行时，里面的参数进入函数调用栈执行。for循环不会进入任何队列，因此代码会依次执行，所以这里的promise1和promise2会依次输出。
+
+![1594131544495](./1594131544495.png)
+
+![1594131666280](./1594131666280.png)
+
+script任务继续往下执行，最后只有一句输出了globa1，然后，全局任务就执行完毕了。
+
+第四步：第一个宏任务script执行完毕之后，就开始执行所有的可执行的微任务。这个时候，微任务中，只有Promise队列中的一个任务then1，因此直接执行就行了，执行结果输出then1，当然，他的执行，也是进入函数调用栈中执行的。
+
+![1594131842153](./1594131842153.png)
+
+第五步：当所有的micro-tast执行完毕之后，表示第一轮的循环就结束了。这个时候就得开始第二轮的循环。第二轮循环仍然从宏任务macro-task开始。
+
+![1594131967717](./1594131967717.png)
+
+这个时候，我们发现宏任务中，只有在setTimeout队列中还要一个timeout1的任务等待执行。因此就直接执行即可。执行完后宏任务队列与微任务队列中都没有任务了，所以代码就不会再输出其他东西了。
+
+## 面向对象
+
+### 一、对象的定义
+
+在ECMAScript-262中，对象被定义为**“无序属性的集合，其属性可以包含基本值，对象或者函数”**。
+
+也就是说，在JavaScript中，对象无非就是由一些列无序的`key-value`对组成。其中value可以是基本值，对象或者函数。
+
+```javascript
+
+// 这里的person就是一个对象
+var person = {
+    name: 'Tom',
+    age: 18,
+    getName: function() {},
+    parent: {}
+}
+```
+
+#### 创建对象
+
+我们可以通过new的方式创建一个对象。
+
+```javascript
+var obj = new Object();
+```
+
+也可以通过对象字面量的形式创建一个简单的对象。
+
+```javascript
+var obj = {};
+```
+
+当想要给我们创建的简单对象添加方法时，可以这样表示
+
+```javascript
+
+// 可以这样
+var person = {};
+person.name = "TOM";
+person.getName = function() {
+    return this.name;
+}
+// 也可以这样
+var person = {
+    name: "TOM",
+    getName: function() {
+        return this.name;
+    }
+}
+```
+
+当我们想要访问他的name属性时，可以用如下两种方式访问。
+
+```javascript
+person.name
+
+// 或者
+person['name']
+```
+
+###  二、构造函数
+
+```javascript
+var Person = function(name, age) {
+    this.name = name;
+    this.age = age;
+    this.getName = function() {
+        return this.name;
+    }
+}
+
+var p1 = new Person('Nick', 60);
+console.log(p1.getName());  // Nick
+```
+
+- 与普通函数相比，构造函数并没有任何特别的地方，首字母大写只是我们约定的小规定，用于区分普通函数；
+
+- new关键字让构造函数具有了与普通函数不同的许多特点，而new的过程中，执行了如下过程：
+
+  1.声明一个中间对象；
+
+  2.将该中间对象的原型指向构造函数的原型；
+
+  3.将构造函数的this，指向该中间对象；
+
+  4.返回该中间对象，即返回实例对象。
+
+### 三、原型
+
+我们创建的每一个函数，都可以有一个prototype属性，该属性指向一个对象。这个对象，就是我们这里说的原型。
+
+  当我们在创建对象时，可以根据自己的需求，选择性的将一些属性和方法通过prototype属性，挂载在原型对象上。而每一个new出来的实例，都有一个`__proto__`属性，该属性指向构造函数的原型对象，通过这个属性，让实例对象也能够访问原型对象上的方法。因此，当所有的实例都能够通过`__proto__`访问到原型对象时，原型对象的方法与属性就变成了共有方法与属性。
+
+我们通过一个简单的例子与图示，来了解构造函数，实例与原型三者之间的关系。
+
+```javascript
+
+// 声明构造函数
+function Person(name, age) {
+    this.name = name;
+    this.age = age;
+}
+
+// 通过prototye属性，将方法挂载到原型对象上
+Person.prototype.getName = function() {
+    return this.name;
+}
+
+var p1 = new Person('tim', 10);
+var p2 = new Person('jak', 22);
+console.log(p1.getName === p2.getName); // true
+```
+
+![1594136949585](C:\Users\NieLei\Desktop\js2\jsBase-part2\1594136949585.png)
+
+通过图示我们可以看出，构造函数的prototype与所有实例对象的`__proto__`都指向原型对象。而原型对象的constructor指向构造函数。
 
 
+
+**当我们访问实例对象中的属性或者方法时，会优先访问实例对象自身的属性和方法。**
+
+```javascript
+
+function Person(name, age) {
+    this.name = name;
+    this.age = age;
+    this.getName = function() {
+        console.log('this is constructor.');
+    }
+}
+
+Person.prototype.getName = function() {
+    return this.name;
+}
+
+var p1 = new Person('tim', 10);
+
+p1.getName(); // this is constructor.
+```
+
+### 四、原型链
+
+原型链就是多个对象通过 `__proto__` 的方式连接了起来。
+
+```javascript
+function add() {}
+```
+
+下图来表示这个函数的原型链。
+
+![1594138201314](./1594138201314.png)
+
+其中add是Function对象的实例。而Function的原型对象同时又是Object的实例。这样就构成了一条原型链。原型链的访问，其实跟作用域链有很大的相似之处，他们都是一次单向的查找过程。因此实例对象能够通过原型链，访问到处于原型链上对象的所有属性与方法
+
+### 五、继承
+
+```javascript
+function Person(name, age) {
+    this.name = name;
+    this.age = age;
+}
+Person.prototype.getName = function() {
+    return this.name;
+}
+
+
+// 构造函数的继承
+function cPerson(name, age, job) {
+    Person.call(this, name, age);
+    this.job = job;
+}
+
+// 继承原型
+cPerson.prototype = new Person(name, age);
+// 添加更多方法
+cPerson.prototype.getLive = function() {}
+
+```
+
+## 作业
+
+待补充
