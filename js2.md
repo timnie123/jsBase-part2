@@ -105,10 +105,10 @@ var foo = {
     return this.a;
   }
 }
-console.log(foo.getA()); // 10
+console.log(foo.getA());
 
 var test = foo.getA;
-console.log(test());  // 20
+console.log(test());
  ```
 
 `foo.getA()`中，getA是调用者，他不是独立调用，被对象foo所拥有，因此它的this指向了foo。而`test()`作为调用者，尽管他与foo.getA的引用相同，但是它是独立调用的，因此this指向undefined，在非严格模式，自动转向全局window。
@@ -207,7 +207,7 @@ bar(); // 2
 
 这样，我们就可以称foo为闭包。
 
-**所以，通过闭包，我们可以在其他的执行上下文中，访问到函数的内部变量。**比如在上面的例子中，我们在函数bar的执行环境中访问到了函数foo的a变量
+所以，通过闭包，我们可以在其他的执行上下文中，访问到函数的内部变量。比如在上面的例子中，我们在函数bar的执行环境中访问到了函数foo的a变量
 
 > 注：虽然例子中的闭包被保存在了全局变量中，但是闭包的作用域链并不会发生任何改变。在闭包中，能访问到的变量，仍然是作用域链上能够查询到的变量。
 
@@ -448,7 +448,7 @@ var p2 = new Person('jak', 22);
 console.log(p1.getName === p2.getName); // true
 ```
 
-![1594136949585](C:\Users\NieLei\Desktop\js2\jsBase-part2\1594136949585.png)
+![1594136949585](./1594136949585.png)
 
 通过图示我们可以看出，构造函数的prototype与所有实例对象的`__proto__`都指向原型对象。而原型对象的constructor指向构造函数。
 
@@ -516,4 +516,34 @@ cPerson.prototype.getLive = function() {}
 
 ## 作业
 
-待补充
+1、思考输出一下代码
+
+```javascript
+var a = 20;
+function getA() {
+  return this.a;
+}
+function getB() {
+    'use strict'
+    return this.a;
+}
+var foo = {
+  a: 10,
+  getA: getA
+}
+console.log(foo.getA());
+console.log(getA());
+console.log(getB());
+```
+
+2、利用闭包，修改下面的代码，让循环输出的结果依次为1， 2， 3， 4， 5
+
+```javascript
+for (var i = 1; i <= 5; i++) {
+  setTimeout(function timer() {
+    console.log(i);
+  }, i * 1000);
+}
+```
+
+3、自行理解javascript事件循环机制
